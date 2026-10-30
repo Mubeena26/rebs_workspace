@@ -10,7 +10,7 @@ import 'package:rebs_workspace/data/location_service.dart';
 import 'package:rebs_workspace/domain/company_clock.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../mock_server/backend.dart';
+import 'package:rebs_workspace/mock/backend.dart';
 
 /// Routes HTTP requests to an in-process [MockBackend], honouring its delays,
 /// and records every POSTed attendance event type in [posted].

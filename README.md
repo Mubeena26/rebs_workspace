@@ -4,31 +4,30 @@ A Flutter app (Android/iOS) for one preconfigured employee to view attendance, c
 
 ## Quick start
 
+**Just install the APK.** By default the mock API runs *inside the app* (`lib/data/in_app_api.dart`), so the APK works on any phone or emulator with no server, no Wi-Fi setup and no tunnel. It still behaves like a remote server: requests fail while the device is offline (use airplane mode to demo offline), and its data survives app restarts. Mock scenarios and simulated location are in the app's developer sheet (tune icon on Home).
+
 ```bash
-# 1. Mock API (pure Dart, no extra packages) — leave running
-dart run mock_server/server.dart            # http://0.0.0.0:8080
-
-# 2. App — Android emulator reaches the host on 10.0.2.2 (the default)
 flutter pub get
-flutter run
-# iOS simulator: --dart-define=API_BASE_URL=http://localhost:8080
-# Physical device (Android or iPhone) on the same Wi-Fi as the computer:
-flutter run --dart-define=API_BASE_URL=http://<your-computer-ip>:8080
-# On iPhone, tap "Allow" on the Local Network prompt.
-
-# 3. Tests
+flutter run                                  # in-app mock API (default)
 flutter test
+
+# Optional: a real HTTP mock server instead of the in-app one
+dart run mock_server/server.dart            # http://0.0.0.0:8080
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080          # Android emulator
+flutter run --dart-define=API_BASE_URL=http://localhost:8080         # iOS simulator
+flutter run --dart-define=API_BASE_URL=http://<your-computer-ip>:8080 # physical device, same Wi-Fi
+# On iPhone, tap "Allow" on the Local Network prompt.
 ```
 
-Debug APK: `flutter build apk --debug` → `build/app/outputs/flutter-apk/app-debug.apk`. The APK defaults to `http://10.0.2.2:8080`, so it works on an emulator as-is. A physical device needs a build with `--dart-define=API_BASE_URL=...`.
+Debug APK: `flutter build apk --debug` → `build/app/outputs/flutter-apk/app-debug.apk` (uses the in-app mock API).
 
 ### Configuration
 
 | What | Where | Default |
 |---|---|---|
-| Office coordinates / radius | env `OFFICE_LAT`, `OFFICE_LNG`, `OFFICE_RADIUS_M` on the mock server (delivered to the app via `/employee/me`) | 29.3759, 47.9774 (Kuwait City), 200 m |
+| Office coordinates / radius | env `OFFICE_LAT`, `OFFICE_LNG`, `OFFICE_RADIUS_M` on the mock server, or `MockBackend` defaults for the in-app API (delivered to the app via `/employee/me`) | 29.3759, 47.9774 (Kuwait City), 200 m |
 | Company timezone | env `COMPANY_TZ_OFFSET` on the server; app fallback `--dart-define=COMPANY_TZ_OFFSET=3` | UTC+3 |
-| API URL | `--dart-define=API_BASE_URL=...` | `http://10.0.2.2:8080` |
+| API URL | `--dart-define=API_BASE_URL=...` | empty = in-app mock API |
 | Port | env `PORT` | 8080 |
 
 The office location comes from the server, not from an app constant. In production the server owns the geofence, and the app caches it for offline use.
@@ -82,12 +81,13 @@ The one change to the suggested contract: the client sends **no `date`** with at
 ```
 lib/
   domain/   pure Dart: models, attendance rules, leave rules, company clock   (no Flutter, no IO)
-  data/     ApiClient (http), LocalStore (SharedPreferences), LocationService (geolocator)
+  data/     ApiClient (http), LocalStore (SharedPreferences), LocationService (geolocator),
+            in_app_api.dart (routes ApiClient's HTTP requests to the mock backend in-process)
+  mock/     backend.dart: the mock API logic (pure Dart), shared by the server, the app and tests
   app/      SyncService (outbox), WorkspaceController (ChangeNotifier, the UI state)
   ui/       widgets only: render controller state, call controller methods
 mock_server/
-  backend.dart  the mock API logic (pure Dart); also used in-process by the tests
-  server.dart   dart:io HttpServer wrapper
+  server.dart   dart:io HttpServer wrapper around lib/mock/backend.dart
 ```
 
 **State management: a plain `ChangeNotifier` plus `ListenableBuilder`.** This is one screen tree with one source of state, so Provider/Riverpod/Bloc would add a dependency and ceremony without adding capability. The controller is constructed in `main()` and passed down explicitly. Tests construct it with fake transports. If the app grew to several features, I would move to Riverpod for scoped dependency injection.
@@ -161,7 +161,7 @@ The device checks exist for user experience only. A modified client can bypass a
 - `leave_test.dart`: overlap rejected (adjacent dates and rejected requests do not block); the other leave rules; server rejection surfaced, then an idempotent resubmit.
 - `dashboard_widget_test.dart`: loading → error state; offline check-in shows **Pending sync**.
 
-The tests run against the **real mock backend logic** (`mock_server/backend.dart`) through `http`'s `MockClient`, so the idempotency tests exercise the actual server dedupe rather than a stub.
+The tests run against the **real mock backend logic** (`lib/mock/backend.dart`) through `http`'s `MockClient`, so the idempotency tests exercise the actual server dedupe rather than a stub.
 
 ## Limitations & trade-offs
 

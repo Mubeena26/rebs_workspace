@@ -3,7 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'backend.dart';
+import 'package:rebs_workspace/mock/backend.dart';
 
 Future<void> main() async {
   final env = Platform.environment;

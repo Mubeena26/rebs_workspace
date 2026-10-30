@@ -1,5 +1,6 @@
 // Mock REBS backend. Pure Dart (no Flutter) so it runs both behind a real
-// HttpServer (server.dart) and in-process in tests via http's MockClient.
+// HttpServer (mock_server/server.dart), inside the app (data/in_app_api.dart)
+// and in tests via http's MockClient.
 import 'dart:math';
 
 class MockResponse {
@@ -90,6 +91,21 @@ class MockBackend {
                   .where((r) => r['type'] == type && r['status'] != 'rejected')
                   .fold<int>(0, (sum, r) => sum + (r['days'] as int)),
       };
+
+  /// Server data (not the scenario), so the in-app API survives restarts.
+  Map<String, dynamic> toJson() => {'eventsById': eventsById, 'days': days, 'leaveRequests': leaveRequests};
+
+  void restore(Map<String, dynamic> j) {
+    eventsById
+      ..clear()
+      ..addAll({for (final e in (j['eventsById'] as Map).entries) e.key as String: Map<String, dynamic>.from(e.value as Map)});
+    days
+      ..clear()
+      ..addAll({for (final e in (j['days'] as Map).entries) e.key as String: Map<String, String?>.from(e.value as Map)});
+    leaveRequests
+      ..clear()
+      ..addAll([for (final r in j['leaveRequests'] as List) Map<String, dynamic>.from(r as Map)]);
+  }
 
   MockResponse _error(int status, String code, String message, {Duration delay = Duration.zero}) =>
       MockResponse(status, {'code': code, 'message': message}, delay: delay);

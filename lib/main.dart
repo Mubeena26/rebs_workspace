@@ -5,22 +5,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/sync_service.dart';
 import 'app/workspace_controller.dart';
 import 'data/api_client.dart';
+import 'data/in_app_api.dart';
 import 'data/local_store.dart';
 import 'data/location_service.dart';
 import 'domain/company_clock.dart';
 import 'ui/home_shell.dart';
 
-/// Android emulator reaches the host machine on 10.0.2.2. Override with
-/// --dart-define=API_BASE_URL=http://YOUR_LAN_IP:8080 for a physical device.
-const apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8080');
+/// Empty (default): the mock API runs inside the app, so the APK works anywhere.
+/// Set e.g. --dart-define=API_BASE_URL=http://10.0.2.2:8080 to use mock_server/server.dart.
+const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
 /// Used until /employee/me provides the company offset (Kuwait, UTC+3).
 const defaultTzOffsetHours = int.fromEnvironment('COMPANY_TZ_OFFSET', defaultValue: 3);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final store = LocalStore(await SharedPreferences.getInstance());
-  final api = ApiClient(apiBaseUrl);
+  final prefs = await SharedPreferences.getInstance();
+  final store = LocalStore(prefs);
+  final api = apiBaseUrl.isEmpty ? ApiClient('http://in-app', client: inAppApiClient(prefs)) : ApiClient(apiBaseUrl);
   final controller = WorkspaceController(
     api: api,
     store: store,

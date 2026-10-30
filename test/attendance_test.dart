@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rebs_workspace/data/location_service.dart';
 import 'package:rebs_workspace/domain/attendance_rules.dart';
@@ -96,5 +98,22 @@ void main() {
     final outcome = await c.record(EventType.checkIn);
     expect(outcome.message, contains('within 200 m'));
     expect(c.events, isEmpty);
+  });
+
+  test('in-app backend state survives a save and restore', () async {
+    final backend = testBackend();
+    await backend.handle('POST', '/attendance/events', {}, {
+      'eventId': 'e1', 'type': 'check_in', 'timestamp': DateTime.now().toUtc().toIso8601String(),
+      'latitude': backend.officeLat, 'longitude': backend.officeLng,
+    });
+    final restored = testBackend()..restore(jsonDecode(jsonEncode(backend.toJson())) as Map<String, dynamic>);
+    expect(restored.eventsById.keys, ['e1']);
+    expect(restored.days, backend.days);
+    // A replay after restart is still recognised, not a second record.
+    final replay = await restored.handle('POST', '/attendance/events', {}, {
+      'eventId': 'e1', 'type': 'check_in', 'timestamp': DateTime.now().toUtc().toIso8601String(),
+      'latitude': backend.officeLat, 'longitude': backend.officeLng,
+    });
+    expect(replay.status, 200);
   });
 }
